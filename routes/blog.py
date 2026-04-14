@@ -22,9 +22,37 @@ def create_post():
 @jwt_required()
 def get_posts():
     user_id = int(get_jwt_identity())
-    posts = Posts.query.filter_by(user_id=user_id).all()
+    try:
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 10))
+    except (TypeError, ValueError):
+        return jsonify(message='page and per_page must be integers'), 400
 
-    return jsonify(posts=[{'id': post.id, 'title': post.title, 'content': post.content, 'created_at': post.created_at} for post in posts])
+    if page < 1 or per_page < 1:
+        return jsonify(message='page and per_page must be positive integers'), 400
+
+    pagination = Posts.query.filter_by(user_id=user_id).order_by(Posts.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    posts = pagination.items
+
+    return jsonify(
+        posts=[
+            {
+                'id': post.id,
+                'title': post.title,
+                'content': post.content,
+                'created_at': post.created_at.isoformat() if post.created_at else None,
+            }
+            for post in posts
+        ],
+        meta={
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'total_pages': pagination.pages,
+            'total_items': pagination.total,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev,
+        },
+    )
 
 @blog_bp.route('/posts/<int:post_id>', methods=['PUT'])
 @jwt_required()
