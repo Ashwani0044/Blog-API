@@ -22,27 +22,34 @@ def create_post():
 @jwt_required()
 def get_posts():
     user_id = int(get_jwt_identity())
-    try:
-        page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 10))
-    except (TypeError, ValueError):
-        return jsonify(message='page and per_page must be integers'), 400
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    search = request.args.get('search', '')
 
     if page < 1 or per_page < 1:
         return jsonify(message='page and per_page must be positive integers'), 400
 
-    pagination = Posts.query.filter_by(user_id=user_id).order_by(Posts.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    posts = pagination.items
+    per_page = min(per_page, 50)
+
+    query = Posts.query.filter_by(user_id=user_id)
+
+    if search:
+        query = query.filter(Posts.title.ilike(f"%{search}%"))
+
+    pagination = query.order_by(Posts.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
 
     return jsonify(
-        posts=[
+        data=[
             {
                 'id': post.id,
                 'title': post.title,
                 'content': post.content,
                 'created_at': post.created_at.isoformat() if post.created_at else None,
             }
-            for post in posts
+            for post in pagination.items
         ],
         meta={
             'page': pagination.page,
