@@ -1,7 +1,9 @@
 from flask import Flask
+from flask_migrate import Migrate 
 from extensions import db, jwt
 
 app = Flask(__name__)
+migrate = Migrate(app, db)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
 app.config['JWT_SECRET_KEY'] = 'super-secret-key-1234567890abcdef'
