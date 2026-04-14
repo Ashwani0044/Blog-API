@@ -1,7 +1,7 @@
 from extensions import db
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import Posts
+from models import Posts, Comments
 from datetime import datetime
 
 blog_bp = Blueprint('blog', __name__)
@@ -59,7 +59,7 @@ def get_posts():
             'has_next': pagination.has_next,
             'has_prev': pagination.has_prev,
         },
-    )
+    ) 
 
 @blog_bp.route('/posts/<int:post_id>', methods=['PUT'])
 @jwt_required()
@@ -93,3 +93,78 @@ def get_post(post_id):
     if not post:
         return jsonify(message='Post not found'), 404
     return jsonify(id=post.id, title=post.title, content=post.content, created_at=post.created_at)
+
+
+# Comments routes
+
+@blog_bp.route('/posts/<int:post_id>/comments', methods=['POST'])
+@jwt_required()
+def add_comment(post_id):
+    user_id = int(get_jwt_identity())
+    data = request.json
+
+    if not data.get('content'):
+        return jsonify(message='Content required'), 400
+
+    post = Posts.query.get(post_id)
+    if not post:
+        return jsonify(message='Post not found'), 404
+
+    comment = Comments(
+        content=data['content'],
+        user_id=user_id,
+        post_id=post_id
+    )
+
+    db.session.add(comment)
+    db.session.commit()
+
+    return jsonify(message='Comment added'), 201
+
+@blog_bp.route('/posts/<int:post_id>/comments', methods=['GET'])
+@jwt_required()
+def get_comments(post_id):
+    post = Posts.query.get(post_id)
+    if not post:
+        return jsonify(message='Post not found'), 404
+
+    comments = Comments.query.filter_by(post_id=post_id).order_by(Comments.created_at.desc()).all()
+
+    return jsonify([
+        {
+            "id": c.id,
+            "content": c.content,
+            "user_id": c.user_id,
+            "created_at": c.created_at.isoformat()
+        }
+        for c in comments
+    ])
+
+@blog_bp.route('/comments/<int:comment_id>', methods=['PUT'])
+@jwt_required()
+def update_comment(comment_id):
+    user_id = int(get_jwt_identity())
+    data = request.json
+
+    comment = Comments.query.filter_by(id=comment_id, user_id=user_id).first()
+    if not comment:
+        return jsonify(message='Comment not found'), 404
+
+    comment.content = data.get('content', comment.content)
+    db.session.commit()
+
+    return jsonify(message='Comment updated')
+
+@blog_bp.route('/comments/<int:comment_id>', methods=['DELETE'])
+@jwt_required()
+def delete_comment(comment_id):
+    user_id = int(get_jwt_identity())
+
+    comment = Comments.query.filter_by(id=comment_id, user_id=user_id).first()
+    if not comment:
+        return jsonify(message='Comment not found'), 404
+
+    db.session.delete(comment)
+    db.session.commit()
+
+    return jsonify(message='Comment deleted')
