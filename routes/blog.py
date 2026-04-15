@@ -1,7 +1,7 @@
 from extensions import db
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import Posts, Comments
+from models import Posts, Comments, Likes
 from datetime import datetime
 
 blog_bp = Blueprint('blog', __name__)
@@ -168,3 +168,31 @@ def delete_comment(comment_id):
     db.session.commit()
 
     return jsonify(message='Comment deleted')
+
+
+# Likes routes
+@blog_bp.route('/posts/<int:post_id>/like', methods=['POST'])
+@jwt_required()
+def toggle_like(post_id):
+    user_id = int(get_jwt_identity())
+    post = Posts.query.get(post_id)
+    if not post:
+        return jsonify(message='Post not found'), 404
+    
+    existing_like = Likes.query.filter_by(user_id=user_id, post_id=post_id).first()
+
+    if(existing_like):
+        db.session.delete(existing_like)
+        db.session.commit()
+        return jsonify(message='Post unliked')
+    
+    like = Likes(user_id=user_id, post_id=post_id)
+    db.session.add(like)
+    db.session.commit()
+    return jsonify(message='Post liked')
+
+@blog_bp.route('/posts/<int:post_id>/likes', methods=['GET'])
+def get_likes(post_id):
+    count = Likes.query.filter_by(post_id=post_id).count()
+    return jsonify(post_id=post_id, likes=count)
+
