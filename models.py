@@ -13,6 +13,7 @@ class Posts(db.Model):
     title = db.Column(db.String(120), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    image_url = db.Column(db.String(255), nullable=True)
     comments = db.relationship('Comments', backref='post', lazy=True, cascade="all, delete-orphan")
 
 class Comments(db.Model):
@@ -34,4 +35,14 @@ class Likes(db.Model):
 
     __table_args__ = (
         db.UniqueConstraint('user_id', 'post_id', name='unique_user_post_like'),
+    )
+
+class Follows(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    follower_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    followed_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    __table_args__ = (
+        db.UniqueConstraint('follower_id', 'followed_id', name='unique_follow_relationship'),
     )

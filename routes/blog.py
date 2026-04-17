@@ -1,7 +1,7 @@
 from extensions import db
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import Posts, Comments, Likes
+from models import Follows, Posts, Comments, Likes
 from datetime import datetime
 
 blog_bp = Blueprint('blog', __name__)
@@ -13,7 +13,7 @@ def create_post():
     data = request.json
     user_id = int(get_jwt_identity())
 
-    post = Posts(user_id=user_id, title=data['title'], content=data['content'], created_at=datetime.utcnow())
+    post = Posts(user_id=user_id, title=data['title'], content=data['content'], created_at=datetime.utcnow(), image_url=data.get('image_url'))
     db.session.add(post)
     db.session.commit()
     return jsonify(message='Post created successfully'), 201
@@ -195,4 +195,39 @@ def toggle_like(post_id):
 def get_likes(post_id):
     count = Likes.query.filter_by(post_id=post_id).count()
     return jsonify(post_id=post_id, likes=count)
+
+# Follow routes
+
+@blog_bp.route('/users/<int:user_id>/follow', methods=['POST'])
+@jwt_required()
+def toggle_follow(user_id):
+    current_user_id = int(get_jwt_identity())
+
+    if current_user_id == user_id:
+        return jsonify(message='You cannot follow yourself'), 400
+    
+    existing_follow = Follows.query.filter_by(follower_id=current_user_id, followed_id=user_id).first()
+
+    if existing_follow:
+        db.session.delete(existing_follow)
+        db.session.commit()
+        return jsonify(message='User unfollowed')
+    
+    follow = Follows(follower_id=current_user_id, followed_id=user_id)
+    db.session.add(follow)
+    db.session.commit()
+    return jsonify(message='User followed')
+
+@blog_bp.route('/users/<int:user_id>/followers', methods=['GET'])
+def get_followers(user_id):
+
+    # followers_count = Follows.query.filter_by(followed_id=user_id).count()
+    # return jsonify(user_id=user_id, followers=followers_count)
+    followers = Follows.query.filter_by(followed_id=user_id).all()
+    return jsonify(user_id=user_id, followers=[f.follower_id for f in followers])
+
+@blog_bp.route('/users/<int:user_id>/following', methods=['GET'])
+def get_following(user_id):
+    following = Follows.query.filter_by(follower_id=user_id).all()
+    return jsonify(user_id=user_id, following=[f.followed_id for f in following])
 
