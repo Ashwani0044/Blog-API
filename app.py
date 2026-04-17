@@ -8,6 +8,11 @@ migrate = Migrate(app, db)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
 app.config['JWT_SECRET_KEY'] = 'super-secret-key-1234567890abcdef'
 
+@app.before_request
+def home():
+    return "Welcome to the Blog API!"
+
+
 db.init_app(app)
 jwt.init_app(app)
 

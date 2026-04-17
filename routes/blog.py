@@ -13,6 +13,9 @@ def create_post():
     data = request.json
     user_id = int(get_jwt_identity())
 
+    if not data.get('title') or not data.get('content'):
+        return jsonify(message='Title and content required'), 400
+
     post = Posts(user_id=user_id, title=data['title'], content=data['content'], created_at=datetime.utcnow(), image_url=data.get('image_url'))
     db.session.add(post)
     db.session.commit()
@@ -48,6 +51,9 @@ def get_posts():
                 'title': post.title,
                 'content': post.content,
                 'created_at': post.created_at.isoformat() if post.created_at else None,
+                'likes': Likes.query.filter_by(post_id=post.id).count(),
+                'comments': Comments.query.filter_by(post_id=post.id).count(),
+                'image_url': post.image_url
             }
             for post in pagination.items
         ],
@@ -66,6 +72,9 @@ def get_posts():
 def update_post(post_id):
     data = request.json
     user = int(get_jwt_identity())
+
+    if not data.get('title') or not data.get('content'):
+        return jsonify(message='Title and content required'), 400
     post = Posts.query.filter_by(id=post_id, user_id=user).first()
     if not post:
         return jsonify(message='Post not found'), 404
@@ -92,7 +101,9 @@ def get_post(post_id):
     post = Posts.query.filter_by(id=post_id, user_id=user).first()
     if not post:
         return jsonify(message='Post not found'), 404
-    return jsonify(id=post.id, title=post.title, content=post.content, created_at=post.created_at)
+    return jsonify(id=post.id, title=post.title, content=post.content,
+                    created_at=post.created_at.isoformat() if post.created_at else None,
+                      image_url=post.image_url)
 
 
 # Comments routes
@@ -224,10 +235,57 @@ def get_followers(user_id):
     # followers_count = Follows.query.filter_by(followed_id=user_id).count()
     # return jsonify(user_id=user_id, followers=followers_count)
     followers = Follows.query.filter_by(followed_id=user_id).all()
-    return jsonify(user_id=user_id, followers=[f.follower_id for f in followers])
+    return jsonify(user_id=user_id, followers=[
+    {"user_id": f.follower_id}
+    for f in followers
+])
 
 @blog_bp.route('/users/<int:user_id>/following', methods=['GET'])
 def get_following(user_id):
     following = Follows.query.filter_by(follower_id=user_id).all()
-    return jsonify(user_id=user_id, following=[f.followed_id for f in following])
+    return jsonify(user_id=user_id, following=[
+        {"user_id": f.followed_id}
+        for f in following
+    ])
 
+
+# feed logic 
+@blog_bp.route('/feed', methods=['GET'])
+@jwt_required()
+def get_feed():
+    user_id = int(get_jwt_identity())
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    if page < 1 or per_page < 1:
+        return jsonify(message='page and per_page must be positive integers'), 400
+
+    per_page = min(per_page, 50)
+
+    followed_users = Follows.query.filter_by(follower_id=user_id).with_entities(Follows.followed_id).subquery()
+
+    pagination = Posts.query.filter(Posts.user_id.in_(followed_users) | Posts.user_id == user_id).order_by(Posts.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    return jsonify(
+        data=[
+            {
+                'id': post.id,
+                'title': post.title,
+                'content': post.content,
+                'created_at': post.created_at.isoformat() if post.created_at else None,
+                'likes': Likes.query.filter_by(post_id=post.id).count(),
+                'comments': Comments.query.filter_by(post_id=post.id).count(),
+            }
+            for post in pagination.items
+        ],
+        meta={
+            'page': pagination.page,
+            'per_page': pagination.per_page,
+            'total_pages': pagination.pages,
+            'total_items': pagination.total,
+            'has_next': pagination.has_next,
+            'has_prev': pagination.has_prev,
+        },
+    )
