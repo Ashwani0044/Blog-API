@@ -18,9 +18,11 @@ jwt.init_app(app)
 
 from routes.auth import auth_bp
 from routes.blog import blog_bp
+from routes.ai import ai_bp
 
 app.register_blueprint(auth_bp)
 app.register_blueprint(blog_bp)
+app.register_blueprint(ai_bp, url_prefix='/ai')
 
 if __name__ == '__main__':
     with app.app_context():
