@@ -57,7 +57,7 @@ A feature-rich backend API built using **Flask** that simulates core functionali
 ### 1️⃣ Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/blog-api.git
+git clone https://github.com/Ashwani0044/blog-api.git
 cd blog-api
 ```
 
