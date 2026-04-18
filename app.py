@@ -8,7 +8,7 @@ migrate = Migrate(app, db)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
 app.config['JWT_SECRET_KEY'] = 'super-secret-key-1234567890abcdef'
 
-@app.before_request
+@app.route('/')
 def home():
     return "Welcome to the Blog API!"
 
@@ -25,5 +25,5 @@ app.register_blueprint(blog_bp)
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-        app.run(debug=True)
+        app.run(debug=True, port=5000)
 
