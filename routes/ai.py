@@ -46,14 +46,64 @@ def generate_caption():
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=f"""
-Generate ONLY ONE short Instagram caption (max 10 words) with emojis.
-Do not give multiple options. Do not number anything.
+                Generate ONLY ONE short Instagram caption (max 10 words) with emojis.
+                Do not give multiple options. Do not number anything.
 
-Content: {content}
-"""
+                Content: {content}
+            """
         )
 
-        return jsonify(caption=response.text.strip())
+        return jsonify(caption=response.text.strip("/n"))
 
     except Exception as e:
         return jsonify(error=str(e)), 500
+    
+    
+@ai_bp.route('/generate-comment', methods=['POST'])
+def generate_comment():
+    data = request.get_json()
+    content = data.get('content')
+
+    if not content:
+        return jsonify(message="Content required"), 400
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=f"""
+                Generate 3 short, natural Instagram comments for this post.
+                Do NOT number them. Keep them casual and include emojis.
+
+                Post: {content}
+            """
+        )
+        return jsonify(comment=response.text.strip("/n"))
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+        
+
+@ai_bp.route('/summarize', methods=['POST'])
+def summarize_post():
+    data = request.get_json()
+    content = data.get('content')
+
+    if not content:
+        return jsonify(message="Content required"), 400
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=f"""
+                Summarize the following post in 1 short sentence.
+                Keep it simple and clear.
+
+                Post:
+                {content}
+            """
+        )
+
+        return jsonify(summary=response.text.strip())
+    
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+    
