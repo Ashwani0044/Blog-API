@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from google import genai
+from dotenv import load_dotenv
 # from openai import OpenAI
 import os
 
@@ -31,7 +32,9 @@ ai_bp = Blueprint('ai', __name__)
 #     except Exception as e:
 #         return jsonify({'error': str(e)}), 500
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+client = genai.Client(api_key=api_key)
 
 
 @ai_bp.route("/generate-caption", methods=["POST"])
